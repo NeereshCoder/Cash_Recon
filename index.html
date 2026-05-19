@@ -288,7 +288,7 @@
             <span id="globalSyncStatus" class="global-status sync-off">Local only</span>
             <button class="settings-toggle" onclick="toggleSettings()">Settings</button>
             <label for="filterDate" style="font-weight:600; color:var(--text-muted); font-size:0.85rem;">Date</label>
-            <input type="date" id="filterDate" style="width:auto;" onchange="loadLogs()">
+            <input type="date" id="filterDate" style="width:auto;" onchange="refreshView()">
         </div>
     </div>
 
@@ -372,7 +372,11 @@
     <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem;">
             <h3 style="margin:0;">Settlement Logs for <span id="logDateHeading"></span></h3>
-            <button class="btn-ghost" style="width:auto; padding:0.4rem 0.8rem; font-size:0.85rem;" onclick="exportCSV()">Export CSV</button>
+            <div style="display:flex; gap:0.5rem; align-items:center;">
+                <span id="refreshIndicator" style="font-size:0.8rem; color:var(--text-muted); display:none;">Loading…</span>
+                <button class="btn-ghost" style="width:auto; padding:0.4rem 0.8rem; font-size:0.85rem;" onclick="refreshView(true)">Refresh</button>
+                <button class="btn-ghost" style="width:auto; padding:0.4rem 0.8rem; font-size:0.85rem;" onclick="exportCSV()">Export CSV</button>
+            </div>
         </div>
         <div class="table-wrapper">
             <table>
@@ -415,7 +419,7 @@
     }));
     saveLogs();
 
-    window.onload = function() {
+    window.onload = async function() {
         document.getElementById('filterDate').valueAsDate = new Date();
         document.getElementById('appsScriptUrl').value = settings.url || '';
         document.getElementById('appsScriptToken').value = settings.token || '';
@@ -423,7 +427,9 @@
         buildDenominationForm();
         loadLogs();
         updateGlobalSyncStatus();
-        syncPending();
+        await syncPending();
+        await fetchPeople();
+        await refreshView();
     };
 
     function toggleSettings() {
@@ -437,7 +443,10 @@
         showSyncError('');
         updateGlobalSyncStatus();
         if (settings.url) {
-            pingSheet().then(() => syncPending(true));
+            pingSheet()
+                .then(() => syncPending(true))
+                .then(() => fetchPeople())
+                .then(() => refreshView());
         } else {
             alert('Sync disabled — running in local-only mode.');
         }
@@ -481,21 +490,57 @@
         localStorage.setItem('cr_users', JSON.stringify(users));
     }
 
-    function addUser() {
+    async function addUser() {
         const nameInput = document.getElementById('newUserName');
         const name = nameInput.value.trim();
-        if(name && !users.includes(name)) {
-            users.push(name);
-            renderUsers();
+        if (!name || users.includes(name)) {
             nameInput.value = '';
+            return;
+        }
+        users.push(name);
+        renderUsers();
+        nameInput.value = '';
+
+        if (settings.url) {
+            const result = await pushToSheet('addPerson', { name });
+            if (result.ok && Array.isArray(result.people)) {
+                users = result.people;
+                renderUsers();
+            } else if (!result.ok) {
+                showSyncError('Could not save person to sheet:\n' + (result.error || 'unknown error'));
+            }
         }
     }
 
-    function removeUser(name) {
-        if(confirm(`Are you sure you want to remove ${name}?`)) {
-            users = users.filter(u => u !== name);
-            renderUsers();
+    async function removeUser(name) {
+        if (!confirm(`Are you sure you want to remove ${name}?`)) return;
+        users = users.filter(u => u !== name);
+        renderUsers();
+
+        if (settings.url) {
+            const result = await pushToSheet('removePerson', { name });
+            if (result.ok && Array.isArray(result.people)) {
+                users = result.people;
+                renderUsers();
+            } else if (!result.ok) {
+                showSyncError('Could not remove person from sheet:\n' + (result.error || 'unknown error'));
+            }
         }
+    }
+
+    async function fetchPeople() {
+        if (!settings.url) return;
+        const result = await pushToSheet('listPeople', {});
+        if (!result.ok) return;
+        const remote = Array.isArray(result.people) ? result.people : [];
+
+        const remoteSet = new Set(remote);
+        const localOnly = users.filter(u => !remoteSet.has(u));
+        for (const name of localOnly) {
+            await pushToSheet('addPerson', { name });
+        }
+        users = [...new Set([...remote, ...localOnly])];
+        renderUsers();
     }
 
     function buildDenominationForm() {
@@ -617,7 +662,7 @@
         saveLogs();
         resetForm();
         loadLogs();
-        syncPending();
+        syncPending().then(() => refreshView());
     }
 
     function resetForm() {
@@ -878,6 +923,68 @@
 
     function saveLogs() {
         localStorage.setItem('cr_logs', JSON.stringify(logs));
+    }
+
+    function normalizeRemoteLog(r) {
+        const breakdown = r.breakdown || {};
+        const cleanBreakdown = {};
+        Object.entries(breakdown).forEach(([k, v]) => {
+            const n = Number(v) || 0;
+            if (n > 0) cleanBreakdown[k] = n;
+        });
+        return {
+            id: typeof r.id === 'number' ? r.id : Number(r.id) || r.id,
+            date: r.date,
+            time: r.time || '',
+            user: r.user,
+            expected: Number(r.expected) || 0,
+            counted: Number(r.counted) || 0,
+            diff: Number(r.diff) || 0,
+            status: r.status || 'Match',
+            breakdown: cleanBreakdown,
+            remarks: r.remarks || '',
+            synced: true
+        };
+    }
+
+    async function fetchFromSheet(date) {
+        if (!settings.url) return false;
+        if (!date) date = document.getElementById('filterDate').value;
+        const result = await pushToSheet('list', { date });
+        if (!result.ok) {
+            showSyncError('Load from sheet failed:\n' + (result.error || 'unknown error'));
+            return false;
+        }
+        const remoteLogs = (result.entries || []).map(normalizeRemoteLog);
+
+        logs = logs.filter(l => l.date !== date || !l.synced || l._pendingDelete);
+
+        const localIdsForDate = new Set(
+            logs.filter(l => l.date === date).map(l => String(l.id))
+        );
+        remoteLogs.forEach(r => {
+            if (!localIdsForDate.has(String(r.id))) logs.push(r);
+        });
+
+        saveLogs();
+        showSyncError('');
+        return true;
+    }
+
+    async function refreshView(verbose) {
+        const indicator = document.getElementById('refreshIndicator');
+        if (settings.url) {
+            if (indicator) indicator.style.display = 'inline';
+            const ok = await fetchFromSheet();
+            if (indicator) indicator.style.display = 'none';
+            if (verbose && ok) {
+                const count = logs.filter(l =>
+                    l.date === document.getElementById('filterDate').value && !l._pendingDelete
+                ).length;
+                console.log(`Refreshed from sheet — ${count} entries for this date.`);
+            }
+        }
+        loadLogs();
     }
 
     function escapeHtml(s) {

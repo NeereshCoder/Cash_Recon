@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cash Settlement Tool</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --primary-tint: #eef2ff;
+            --success: #059669;
+            --success-tint: #d1fae5;
+            --danger: #dc2626;
+            --danger-tint: #fee2e2;
+            --warning: #d97706;
+            --warning-tint: #fef3c7;
+            --bg-from: #eef2f7;
+            --bg-to: #dbe3ee;
+            --surface: #ffffff;
+            --surface-2: #f8fafc;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --border-strong: #cbd5e1;
+            --radius: 14px;
+            --radius-sm: 8px;
+            --shadow-sm: 0 1px 2px rgba(15,23,42,.04), 0 1px 3px rgba(15,23,42,.06);
+            --shadow-md: 0 1px 2px rgba(15,23,42,.04), 0 12px 28px -12px rgba(15,23,42,.14);
+            --shadow-lg: 0 4px 6px -2px rgba(15,23,42,.06), 0 20px 40px -16px rgba(15,23,42,.22);
+            --ring: 0 0 0 3px rgba(79,70,229,.18);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-from: #0b1220;
+                --bg-to: #111a2e;
+                --surface: #1a2335;
+                --surface-2: #131c2d;
+                --text: #e2e8f0;
+                --text-muted: #94a3b8;
+                --border: #2a3650;
+                --border-strong: #3b486a;
+                --primary-tint: rgba(99,102,241,.16);
+                --success-tint: rgba(5,150,105,.20);
+                --danger-tint: rgba(220,38,38,.22);
+                --warning-tint: rgba(217,119,6,.22);
+                --shadow-md: 0 1px 2px rgba(0,0,0,.30), 0 12px 28px -10px rgba(0,0,0,.55);
+                --shadow-lg: 0 4px 6px -2px rgba(0,0,0,.35), 0 20px 40px -14px rgba(0,0,0,.7);
+            }
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; }
+        body {
+            background: #f8fcfa33;
+            background-attachment: fixed;
+            color: var(--text);
+            padding: 2rem;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            font-feature-settings: "cv11", "ss01";
+        }
+        .amount, .denom-total, td.num, .summary-row span:last-child, #sumDifference { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+        .container { max-width: 1240px; margin: 0 auto; display: grid; grid-template-columns: minmax(360px, 1fr) minmax(0, 1.8fr); gap: 1.75rem; }
+
+        h1, h2, h3, h4 { color: var(--text); letter-spacing: -0.01em; }
+        h2 { font-weight: 700; font-size: 1.35rem; }
+        h3 { font-weight: 700; font-size: 1.05rem; margin-bottom: 1rem; }
+        h4 { font-weight: 600; font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+        .header-main {
+            grid-column: 1 / -1;
+            display: flex; justify-content: space-between; align-items: center;
+            background: var(--surface);
+            padding: 1.25rem 1.5rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border);
+        }
+        .brand { display: flex; align-items: center; gap: 0.75rem; }
+        .brand-mark {
+            width: 38px; height: 38px; border-radius: 10px;
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 60%, #4338ca 100%);
+            color: #fff; display: grid; place-items: center;
+            font-weight: 800; font-size: 1rem;
+            box-shadow: 0 6px 16px -6px rgba(79,70,229,.6), inset 0 1px 0 rgba(255,255,255,.25);
+        }
+
+        .card {
+            background: var(--surface);
+            padding: 1.5rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-md);
+            margin-bottom: 1.25rem;
+            border: 1px solid var(--border);
+            transition: box-shadow .25s ease, transform .25s ease;
+        }
+        .card:hover { box-shadow: var(--shadow-lg); }
+
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.4rem; font-weight: 600; font-size: 0.85rem; color: var(--text-muted); }
+        input, select, textarea {
+            width: 100%; padding: 0.7rem 0.85rem;
+            border: 1px solid var(--border-strong);
+            border-radius: var(--radius-sm);
+            font-size: 0.95rem; font-family: inherit;
+            background: var(--surface); color: var(--text);
+            transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+        }
+        textarea { resize: vertical; min-height: 60px; }
+        input:hover, select:hover, textarea:hover { border-color: var(--primary); }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: var(--ring); }
+
+        button {
+            width: 100%; padding: 0.75rem 1rem;
+            background: var(--primary); color: white;
+            border: none; border-radius: var(--radius-sm);
+            font-size: 0.95rem; font-weight: 600;
+            cursor: pointer;
+            transition: transform .12s ease, box-shadow .15s ease, background .15s ease, filter .15s ease;
+            box-shadow: 0 1px 2px rgba(15,23,42,.08), 0 4px 12px -4px rgba(79,70,229,.45);
+            letter-spacing: 0.01em;
+        }
+        button:hover { background: var(--primary-dark); transform: translateY(-1px); }
+        button:active { transform: translateY(0); filter: brightness(.95); }
+        button:focus-visible { outline: none; box-shadow: var(--ring), 0 4px 12px -4px rgba(79,70,229,.45); }
+        button.btn-danger { background: var(--danger); box-shadow: 0 1px 2px rgba(15,23,42,.08), 0 4px 12px -4px rgba(220,38,38,.45); }
+        button.btn-danger:hover { background: #b91c1c; }
+        button.btn-success { background: var(--success); box-shadow: 0 1px 2px rgba(15,23,42,.08), 0 4px 12px -4px rgba(5,150,105,.45); }
+        button.btn-success:hover { background: #735e20; }
+        button.btn-warning { background: var(--warning); box-shadow: 0 1px 2px rgba(15,23,42,.08), 0 4px 12px -4px rgba(217,119,6,.45); }
+        button.btn-warning:hover { background: #b45309; }
+        button.btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border-strong); box-shadow: none; }
+        button.btn-ghost:hover { background: var(--surface-2); border-color: var(--primary); color: var(--primary); }
+
+        .denom-row {
+            display: grid; grid-template-columns: 90px 16px 1fr 16px 120px;
+            align-items: center; gap: 0.5rem;
+            padding: 0.4rem 0.65rem;
+            border-radius: var(--radius-sm);
+            margin-bottom: 0.35rem;
+            transition: background .15s ease, transform .15s ease;
+            border: 1px solid transparent;
+        }
+        .denom-row:hover { transform: translateX(2px); border-color: var(--border); }
+        .denom-label { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+        .denom-total { text-align: right; font-weight: 600; color: var(--text-muted); }
+        .denom-row input { padding: 0.5rem 0.65rem; font-size: 0.95rem; }
+
+        /* Indian currency note tints */
+        .denom-row[data-val="2000"] { background: linear-gradient(90deg, rgba(236,72,153,.10), transparent 70%); }
+        .denom-row[data-val="500"]  { background: linear-gradient(90deg, rgba(120,113,108,.10), transparent 70%); }
+        .denom-row[data-val="200"]  { background: linear-gradient(90deg, rgba(234,179,8,.12), transparent 70%); }
+        .denom-row[data-val="100"]  { background: linear-gradient(90deg, rgba(168,85,247,.10), transparent 70%); }
+        .denom-row[data-val="50"]   { background: linear-gradient(90deg, rgba(14,165,233,.12), transparent 70%); }
+        .denom-row[data-val="20"]   { background: linear-gradient(90deg, rgba(132,204,22,.12), transparent 70%); }
+        .denom-row[data-val="10"]   { background: linear-gradient(90deg, rgba(180,83,9,.10), transparent 70%); }
+        .denom-row[data-val="5"]    { background: linear-gradient(90deg, rgba(34,197,94,.10), transparent 70%); }
+        .denom-row[data-val="2"]    { background: linear-gradient(90deg, rgba(244,114,182,.10), transparent 70%); }
+        .denom-row[data-val="1"]    { background: linear-gradient(90deg, rgba(148,163,184,.12), transparent 70%); }
+
+        .summary-box {
+            background: var(--surface-2);
+            padding: 1rem 1.1rem;
+            border-radius: var(--radius-sm);
+            margin-top: 1rem;
+            border: 1px solid var(--border);
+        }
+        .summary-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; font-size: 0.95rem; color: var(--text-muted); }
+        .summary-row span:last-child { color: var(--text); font-weight: 600; }
+
+        /* Hero difference */
+        .hero-diff {
+            margin-top: 0.75rem;
+            padding: 1.1rem 1.25rem;
+            border-radius: var(--radius);
+            background: var(--success-tint);
+            border: 1px solid transparent;
+            display: flex; justify-content: space-between; align-items: center;
+            transition: background .25s ease, border-color .25s ease;
+        }
+        .hero-diff .hero-label { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+        .hero-diff .hero-value {
+            font-size: 2.25rem; font-weight: 800; letter-spacing: -0.02em;
+            font-variant-numeric: tabular-nums; line-height: 1;
+        }
+        .hero-diff.match    { background: var(--success-tint); }
+        .hero-diff.match    .hero-value { color: var(--success); }
+        .hero-diff.shortage { background: var(--danger-tint); }
+        .hero-diff.shortage .hero-value { color: var(--danger); }
+        .hero-diff.surplus  { background: var(--warning-tint); }
+        .hero-diff.surplus  .hero-value { color: var(--warning); }
+
+        .match { color: var(--success); }
+        .shortage { color: var(--danger); }
+        .surplus { color: var(--warning); }
+
+        .table-wrapper { overflow-x: auto; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem; }
+        th, td { padding: 0.7rem 0.65rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        th {
+            background: var(--surface-2); font-weight: 600; font-size: 0.78rem;
+            text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);
+            position: sticky; top: 0; z-index: 1;
+        }
+        tbody tr { transition: background .12s ease; }
+        tbody tr:nth-child(even) { background: var(--surface-2); }
+        tbody tr:hover { background: var(--primary-tint); }
+        tfoot td { font-weight: 700; background: var(--surface-2); border-top: 2px solid var(--border-strong); color: var(--text); }
+
+        .status-pill {
+            display: inline-block; padding: 0.25rem 0.65rem;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 700;
+            letter-spacing: 0.04em; text-transform: uppercase;
+        }
+        .status-pill.match    { background: var(--success-tint); color: var(--success); }
+        .status-pill.shortage { background: var(--danger-tint);  color: var(--danger); }
+        .status-pill.surplus  { background: var(--warning-tint); color: var(--warning); }
+
+        .user-tag-list { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+        .user-tag {
+            background: var(--surface-2); padding: 0.3rem 0.85rem;
+            border: 1px solid var(--border); border-radius: 999px;
+            display: flex; align-items: center; gap: 0.5rem;
+            font-size: 0.85rem; font-weight: 500;
+            transition: border-color .15s ease, transform .15s ease;
+        }
+        .user-tag:hover { border-color: var(--primary); transform: translateY(-1px); }
+        .user-tag span { cursor: pointer; color: var(--text-muted); font-weight: bold; font-size: 1rem; line-height: 1; }
+        .user-tag span:hover { color: var(--danger); }
+
+        .sync-status { display: inline-block; padding: 0.22rem 0.55rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; }
+        .sync-ok { background: var(--success-tint); color: var(--success); }
+        .sync-pending { background: var(--warning-tint); color: var(--warning); }
+        .sync-off { background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border); }
+
+        .edit-banner {
+            background: var(--warning-tint); border: 1px solid rgba(217,119,6,.35);
+            padding: 0.75rem 1rem; border-radius: var(--radius-sm);
+            margin-bottom: 1rem;
+            display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;
+        }
+        .edit-banner span { font-weight: 600; color: var(--warning); font-size: 0.9rem; }
+        .edit-banner button { width: auto; padding: 0.4rem 0.85rem; font-size: 0.8rem; }
+
+        .hidden { display: none !important; }
+
+        .settings-toggle { background: transparent; color: var(--primary); width: auto; padding: 0.45rem 0.9rem; font-size: 0.85rem; border: 1px solid var(--primary); box-shadow: none; }
+        .settings-toggle:hover { background: var(--primary-tint); color: var(--primary-dark); border-color: var(--primary-dark); }
+
+        .row-actions { display: flex; gap: 0.3rem; }
+        .row-actions button { width: auto; padding: 0.3rem 0.6rem; font-size: 0.72rem; font-weight: 600; box-shadow: none; }
+
+        .global-status { padding: 0.45rem 0.85rem; border-radius: 999px; font-size: 0.78rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.4rem; }
+        .global-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px currentColor; opacity: .35; }
+
+        .empty-state {
+            text-align: center; padding: 3rem 1rem; color: var(--text-muted);
+        }
+        .empty-state .emoji { font-size: 2.4rem; opacity: .55; margin-bottom: 0.75rem; }
+        .empty-state .title { font-weight: 600; font-size: 1rem; color: var(--text); margin-bottom: 0.25rem; }
+        .empty-state .hint { font-size: 0.85rem; }
+
+        @media (max-width: 960px) {
+            body { padding: 1rem; }
+            .container { grid-template-columns: 1fr; gap: 1.25rem; }
+            .header-main { flex-wrap: wrap; gap: 0.75rem; }
+            .hero-diff .hero-value { font-size: 1.85rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-main">
+        <div class="brand">
+            <div class="brand-mark">₹</div>
+            <div>
+                <h2>Cash Settlement Desk</h2>
+                <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">Count, reconcile, and log the day's cash.</div>
+            </div>
+        </div>
+        <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+            <span id="globalSyncStatus" class="global-status sync-off">Local only</span>
+            <button class="settings-toggle" onclick="toggleSettings()">Settings</button>
+            <label for="filterDate" style="font-weight:600; color:var(--text-muted); font-size:0.85rem;">Date</label>
+            <input type="date" id="filterDate" style="width:auto;" onchange="loadLogs()">
+        </div>
+    </div>
+
+    <div>
+        <div class="card hidden" id="settingsCard">
+            <h3>Google Sheets Sync</h3>
+            <div class="form-group">
+                <label for="appsScriptUrl">Apps Script Web App URL</label>
+                <input type="url" id="appsScriptUrl" placeholder="https://script.google.com/macros/s/AKfycbxl_348ZmyhJSYea5qNjO2XSW0BT-NO1JrM8YpxYDgKUVe3WzLZBWDOQlpHSHoqk-tGBQ/exec">
+            </div>
+            <div class="form-group">
+                <label for="appsScriptToken">Shared Secret Token</label>
+                <input type="text" id="appsScriptToken" placeholder="Must match SHARED_SECRET in your Apps Script">
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+                <button onclick="saveSettings()">Save & Test</button>
+                <button class="btn-ghost" onclick="syncPending(true)">Re-sync Pending</button>
+                <button class="btn-ghost" onclick="pingSheet()">Ping</button>
+            </div>
+            <p style="font-size:0.8rem; color:#64748b; margin-top:0.5rem;">Leave empty to use local storage only. See SETUP.md for deployment steps.</p>
+            <pre id="lastSyncError" style="display:none; font-size:0.75rem; color:var(--danger); background:#fef2f2; border:1px solid #fecaca; padding:0.5rem; border-radius:6px; margin-top:0.5rem; white-space:pre-wrap; word-break:break-word; max-height:200px; overflow:auto;"></pre>
+        </div>
+
+        <div class="card">
+            <h3>Manage People</h3>
+            <div class="form-group" style="display:flex; gap:0.5rem;">
+                <input type="text" id="newUserName" placeholder="Enter Name" onkeydown="if(event.key==='Enter') addUser()">
+                <button onclick="addUser()" style="width:auto; white-space:nowrap;">Add</button>
+            </div>
+            <div class="user-tag-list" id="userTagList"></div>
+        </div>
+
+        <div class="card">
+            <h3>New Settlement</h3>
+
+            <div id="editBanner" class="edit-banner hidden">
+                <span id="editBannerText"></span>
+                <button class="btn-ghost" onclick="cancelEdit()">Cancel</button>
+            </div>
+
+            <div class="form-group">
+                <label for="settleUser">Select Person</label>
+                <select id="settleUser"></select>
+            </div>
+            <div class="form-group">
+                <label for="systemAmount">System Expected Amount (₹)</label>
+                <input type="number" id="systemAmount" placeholder="0" min="0" oninput="calculateDenominations()">
+            </div>
+
+            <h4 style="margin: 1rem 0 0.5rem 0;">Denominations</h4>
+            <div id="denominationContainer"></div>
+
+            <div class="summary-box">
+                <div class="summary-row">
+                    <span>System Expected</span>
+                    <span id="sumExpected">₹0</span>
+                </div>
+                <div class="summary-row">
+                    <span>Manually Counted</span>
+                    <span id="sumCounted">₹0</span>
+                </div>
+            </div>
+
+            <div id="diffHero" class="hero-diff match">
+                <div>
+                    <div class="hero-label">Difference</div>
+                    <div id="diffSubLabel" style="font-size:0.78rem; color:var(--text-muted); margin-top:0.25rem;">All balanced</div>
+                </div>
+                <div id="sumDifference" class="hero-value">₹0</div>
+            </div>
+
+            <div class="form-group" style="margin-top: 1rem;">
+                <label for="settleRemarks">Remarks (optional)</label>
+                <textarea id="settleRemarks" placeholder="e.g., ₹50 short — customer underpaid"></textarea>
+            </div>
+
+            <button id="saveBtn" onclick="saveSettlement()" class="btn-success">Save Log</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem;">
+            <h3 style="margin:0;">Settlement Logs for <span id="logDateHeading"></span></h3>
+            <button class="btn-ghost" style="width:auto; padding:0.4rem 0.8rem; font-size:0.85rem;" onclick="exportCSV()">Export CSV</button>
+        </div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Person</th>
+                        <th>Expected (₹)</th>
+                        <th>Counted (₹)</th>
+                        <th>Diff (₹)</th>
+                        <th>Status</th>
+                        <th>Denominations</th>
+                        <th>Remarks</th>
+                        <th>Sync</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="logTableBody"></tbody>
+                <tfoot id="logTableFoot"></tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    const denominations = [2000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
+    const LARGE_DIFF_THRESHOLD = 500;
+
+    let users = JSON.parse(localStorage.getItem('cr_users')) || ['Ramesh', 'Suresh', 'Amit'];
+    let logs = JSON.parse(localStorage.getItem('cr_logs')) || [];
+    let settings = JSON.parse(localStorage.getItem('cr_settings')) || { url: '', token: '' };
+    let editingId = null;
+
+    logs = logs.map(l => ({
+        ...l,
+        status: l.status || (l.diff === 0 ? 'Match' : l.diff < 0 ? 'Shortage' : 'Surplus'),
+        time: l.time || '',
+        remarks: l.remarks || '',
+        synced: l.synced === true
+    }));
+    saveLogs();
+
+    window.onload = function() {
+        document.getElementById('filterDate').valueAsDate = new Date();
+        document.getElementById('appsScriptUrl').value = settings.url || '';
+        document.getElementById('appsScriptToken').value = settings.token || '';
+        renderUsers();
+        buildDenominationForm();
+        loadLogs();
+        updateGlobalSyncStatus();
+        syncPending();
+    };
+
+    function toggleSettings() {
+        document.getElementById('settingsCard').classList.toggle('hidden');
+    }
+
+    function saveSettings() {
+        settings.url = document.getElementById('appsScriptUrl').value.trim();
+        settings.token = document.getElementById('appsScriptToken').value.trim();
+        localStorage.setItem('cr_settings', JSON.stringify(settings));
+        showSyncError('');
+        updateGlobalSyncStatus();
+        if (settings.url) {
+            pingSheet().then(() => syncPending(true));
+        } else {
+            alert('Sync disabled — running in local-only mode.');
+        }
+    }
+
+    function updateGlobalSyncStatus() {
+        const el = document.getElementById('globalSyncStatus');
+        const pending = logs.filter(l => !l.synced).length;
+        if (!settings.url) {
+            el.className = 'global-status sync-off';
+            el.textContent = 'Local only';
+        } else if (pending > 0) {
+            el.className = 'global-status sync-pending';
+            el.textContent = `${pending} pending sync`;
+        } else {
+            el.className = 'global-status sync-ok';
+            el.textContent = 'Synced';
+        }
+    }
+
+    function renderUsers() {
+        const tagList = document.getElementById('userTagList');
+        const selectDropdown = document.getElementById('settleUser');
+        const currentSelection = selectDropdown.value;
+
+        tagList.innerHTML = '';
+        selectDropdown.innerHTML = '<option value="">-- Choose Person --</option>';
+
+        users.sort().forEach(user => {
+            const tag = document.createElement('div');
+            tag.className = 'user-tag';
+            tag.innerHTML = `${escapeHtml(user)} <span onclick="removeUser('${escapeAttr(user)}')">&times;</span>`;
+            tagList.appendChild(tag);
+
+            const opt = document.createElement('option');
+            opt.value = user;
+            opt.textContent = user;
+            selectDropdown.appendChild(opt);
+        });
+        if (currentSelection) selectDropdown.value = currentSelection;
+        localStorage.setItem('cr_users', JSON.stringify(users));
+    }
+
+    function addUser() {
+        const nameInput = document.getElementById('newUserName');
+        const name = nameInput.value.trim();
+        if(name && !users.includes(name)) {
+            users.push(name);
+            renderUsers();
+            nameInput.value = '';
+        }
+    }
+
+    function removeUser(name) {
+        if(confirm(`Are you sure you want to remove ${name}?`)) {
+            users = users.filter(u => u !== name);
+            renderUsers();
+        }
+    }
+
+    function buildDenominationForm() {
+        const container = document.getElementById('denominationContainer');
+        container.innerHTML = '';
+
+        denominations.forEach(val => {
+            const row = document.createElement('div');
+            row.className = 'denom-row';
+            row.setAttribute('data-val', val);
+            row.innerHTML = `
+                <div class="denom-label">₹${val}</div>
+                <div style="color:var(--text-muted);">&times;</div>
+                <div><input type="number" class="denom-input" data-val="${val}" min="0" placeholder="0" oninput="calculateDenominations()"></div>
+                <div style="color:var(--text-muted);">=</div>
+                <div class="denom-total" id="total-${val}">0</div>
+            `;
+            container.appendChild(row);
+        });
+    }
+
+    function calculateDenominations() {
+        const expected = parseFloat(document.getElementById('systemAmount').value) || 0;
+        let totalCounted = 0;
+
+        document.querySelectorAll('.denom-input').forEach(input => {
+            const denomVal = parseInt(input.getAttribute('data-val'));
+            const qty = parseInt(input.value) || 0;
+            const rowTotal = denomVal * qty;
+            document.getElementById(`total-${denomVal}`).textContent = rowTotal;
+            totalCounted += rowTotal;
+        });
+
+        const difference = totalCounted - expected;
+
+        document.getElementById('sumExpected').textContent = '₹' + expected.toLocaleString('en-IN');
+        document.getElementById('sumCounted').textContent = '₹' + totalCounted.toLocaleString('en-IN');
+
+        const diffElement = document.getElementById('sumDifference');
+        const hero = document.getElementById('diffHero');
+        const subLabel = document.getElementById('diffSubLabel');
+        diffElement.textContent = (difference >= 0 ? '+₹' : '-₹') + Math.abs(difference).toLocaleString('en-IN');
+        hero.classList.remove('match', 'shortage', 'surplus');
+        if (difference === 0) {
+            hero.classList.add('match');
+            subLabel.textContent = totalCounted > 0 ? 'All balanced — ready to log' : 'Awaiting count';
+        } else if (difference < 0) {
+            hero.classList.add('shortage');
+            subLabel.textContent = `Short by ₹${Math.abs(difference).toLocaleString('en-IN')}`;
+        } else {
+            hero.classList.add('surplus');
+            subLabel.textContent = `Surplus of ₹${difference.toLocaleString('en-IN')}`;
+        }
+
+        return { expected, totalCounted, difference };
+    }
+
+    function saveSettlement() {
+        const user = document.getElementById('settleUser').value;
+        const targetDate = document.getElementById('filterDate').value;
+        const remarks = document.getElementById('settleRemarks').value.trim();
+
+        if (!user) return alert('Please select a Person.');
+        if (!targetDate) return alert('Please pick a date.');
+
+        const calcs = calculateDenominations();
+
+        if (calcs.expected <= 0) return alert('Expected amount must be greater than zero.');
+        if (calcs.totalCounted === 0) return alert('Enter at least one denomination count.');
+        if (Math.abs(calcs.difference) > LARGE_DIFF_THRESHOLD) {
+            if (!confirm(`Large difference detected: ₹${calcs.difference}. Save anyway?`)) return;
+        }
+
+        let breakdown = {};
+        document.querySelectorAll('.denom-input').forEach(input => {
+            const q = parseInt(input.value) || 0;
+            if(q > 0) breakdown[input.getAttribute('data-val')] = q;
+        });
+
+        const status = calcs.difference === 0 ? 'Match' : calcs.difference < 0 ? 'Shortage' : 'Surplus';
+
+        if (editingId !== null) {
+            const idx = logs.findIndex(l => l.id === editingId);
+            if (idx >= 0) {
+                logs[idx] = {
+                    ...logs[idx],
+                    date: targetDate,
+                    user,
+                    expected: calcs.expected,
+                    counted: calcs.totalCounted,
+                    diff: calcs.difference,
+                    status,
+                    breakdown,
+                    remarks,
+                    synced: false
+                };
+            }
+            editingId = null;
+            updateEditUI();
+        } else {
+            const now = new Date();
+            const hh = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+            logs.push({
+                id: Date.now(),
+                date: targetDate,
+                time: `${hh}:${mm}`,
+                user,
+                expected: calcs.expected,
+                counted: calcs.totalCounted,
+                diff: calcs.difference,
+                status,
+                breakdown,
+                remarks,
+                synced: false
+            });
+        }
+
+        saveLogs();
+        resetForm();
+        loadLogs();
+        syncPending();
+    }
+
+    function resetForm() {
+        document.getElementById('systemAmount').value = '';
+        document.getElementById('settleUser').value = '';
+        document.getElementById('settleRemarks').value = '';
+        document.querySelectorAll('.denom-input').forEach(i => i.value = '');
+        calculateDenominations();
+    }
+
+    function startEdit(id) {
+        const log = logs.find(l => l.id === id);
+        if (!log) return;
+        editingId = id;
+        document.getElementById('settleUser').value = log.user;
+        document.getElementById('systemAmount').value = log.expected;
+        document.getElementById('settleRemarks').value = log.remarks || '';
+        document.querySelectorAll('.denom-input').forEach(i => {
+            const v = log.breakdown[i.getAttribute('data-val')];
+            i.value = v || '';
+        });
+        document.getElementById('filterDate').value = log.date;
+        calculateDenominations();
+        updateEditUI();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelEdit() {
+        editingId = null;
+        resetForm();
+        updateEditUI();
+    }
+
+    function updateEditUI() {
+        const banner = document.getElementById('editBanner');
+        const btn = document.getElementById('saveBtn');
+        if (editingId !== null) {
+            const log = logs.find(l => l.id === editingId);
+            banner.classList.remove('hidden');
+            document.getElementById('editBannerText').textContent = `Editing entry for ${log.user} on ${log.date}`;
+            btn.textContent = 'Update Entry';
+            btn.className = 'btn-warning';
+        } else {
+            banner.classList.add('hidden');
+            btn.textContent = 'Save Log';
+            btn.className = 'btn-success';
+        }
+    }
+
+    function deleteLog(id) {
+        if (!confirm('Delete this entry permanently?')) return;
+        const log = logs.find(l => l.id === id);
+        if (!log) return;
+
+        if (log.synced && settings.url) {
+            log._pendingDelete = true;
+            log.synced = false;
+            saveLogs();
+            loadLogs();
+            syncPending();
+        } else {
+            logs = logs.filter(l => l.id !== id);
+            saveLogs();
+            loadLogs();
+        }
+    }
+
+    function loadLogs() {
+        const filterDate = document.getElementById('filterDate').value;
+        document.getElementById('logDateHeading').textContent = filterDate;
+
+        const tbody = document.getElementById('logTableBody');
+        const tfoot = document.getElementById('logTableFoot');
+        tbody.innerHTML = '';
+        tfoot.innerHTML = '';
+
+        const activeLogs = logs.filter(log => log.date === filterDate && !log._pendingDelete);
+
+        if (activeLogs.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="10">
+                <div class="empty-state">
+                    <div class="emoji">🧾</div>
+                    <div class="title">No settlements logged for this date</div>
+                    <div class="hint">Pick a person and enter denominations on the left to add the first entry.</div>
+                </div>
+            </td></tr>`;
+            updateGlobalSyncStatus();
+            return;
+        }
+
+        let totalExpected = 0, totalCounted = 0, totalDiff = 0;
+
+        activeLogs.forEach(log => {
+            let statusClass = log.status === 'Match' ? 'match' : log.status === 'Shortage' ? 'shortage' : 'surplus';
+            let breakdownStr = Object.entries(log.breakdown).map(([note, qty]) => `₹${note}×${qty}`).join(', ');
+
+            const syncBadge = !settings.url
+                ? '<span class="sync-status sync-off">local</span>'
+                : log.synced
+                    ? '<span class="sync-status sync-ok">✓ synced</span>'
+                    : '<span class="sync-status sync-pending">⏳ pending</span>';
+
+            totalExpected += log.expected;
+            totalCounted += log.counted;
+            totalDiff += log.diff;
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${escapeHtml(log.time || '—')}</td>
+                <td><strong>${escapeHtml(log.user)}</strong></td>
+                <td class="num">₹${log.expected.toLocaleString('en-IN')}</td>
+                <td class="num">₹${log.counted.toLocaleString('en-IN')}</td>
+                <td class="num ${statusClass}"><strong>${log.diff >= 0 ? '+' : ''}${log.diff.toLocaleString('en-IN')}</strong></td>
+                <td><span class="status-pill ${statusClass}">${log.status}</span></td>
+                <td style="font-size:0.78rem; color:var(--text-muted);">${breakdownStr || '—'}</td>
+                <td style="font-size:0.82rem; color:var(--text-muted); max-width:180px;">${escapeHtml(log.remarks || '')}</td>
+                <td>${syncBadge}</td>
+                <td><div class="row-actions">
+                    <button class="btn-ghost" onclick="startEdit(${log.id})">Edit</button>
+                    <button class="btn-danger" onclick="deleteLog(${log.id})">Delete</button>
+                </div></td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        const totalStatusClass = totalDiff === 0 ? 'match' : totalDiff < 0 ? 'shortage' : 'surplus';
+        tfoot.innerHTML = `
+            <tr>
+                <td colspan="2">Daily Totals · ${activeLogs.length} ${activeLogs.length === 1 ? 'entry' : 'entries'}</td>
+                <td class="num">₹${totalExpected.toLocaleString('en-IN')}</td>
+                <td class="num">₹${totalCounted.toLocaleString('en-IN')}</td>
+                <td class="num ${totalStatusClass}">${totalDiff >= 0 ? '+' : ''}${totalDiff.toLocaleString('en-IN')}</td>
+                <td colspan="5"></td>
+            </tr>
+        `;
+
+        updateGlobalSyncStatus();
+    }
+
+    function exportCSV() {
+        const filterDate = document.getElementById('filterDate').value;
+        const activeLogs = logs.filter(log => log.date === filterDate && !log._pendingDelete);
+        if (activeLogs.length === 0) return alert('No entries to export for this date.');
+
+        const headers = ['Date', 'Time', 'Person', 'Expected', 'Counted', 'Diff', 'Status']
+            .concat(denominations.map(d => '₹' + d))
+            .concat(['Remarks']);
+        const rows = activeLogs.map(log => {
+            const base = [log.date, log.time, log.user, log.expected, log.counted, log.diff, log.status];
+            const denoms = denominations.map(d => log.breakdown[d] || 0);
+            return base.concat(denoms).concat([log.remarks || '']);
+        });
+
+        const csv = [headers, ...rows]
+            .map(r => r.map(cell => {
+                const s = String(cell ?? '');
+                return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+            }).join(','))
+            .join('\n');
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `settlements_${filterDate}.csv`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+    }
+
+    function showSyncError(msg) {
+        const el = document.getElementById('lastSyncError');
+        if (!el) return;
+        if (!msg) { el.style.display = 'none'; el.textContent = ''; return; }
+        el.style.display = 'block';
+        el.textContent = msg;
+        document.getElementById('settingsCard').classList.remove('hidden');
+    }
+
+    async function pushToSheet(action, payload) {
+        if (!settings.url) return { ok: false, error: 'not configured' };
+        try {
+            const body = new URLSearchParams();
+            body.append('payload', JSON.stringify({
+                action,
+                token: String(settings.token || '').trim(),
+                ...payload
+            }));
+            const res = await fetch(settings.url, { method: 'POST', body });
+            const contentType = res.headers.get('content-type') || '';
+            const raw = await res.text();
+            if (!res.ok) {
+                return { ok: false, error: `HTTP ${res.status} ${res.statusText}\n${raw.slice(0, 500)}` };
+            }
+            if (!contentType.includes('json') && raw.trim().startsWith('<')) {
+                return { ok: false, error: 'Got HTML back instead of JSON — deployment is probably not set to "Anyone" access, or the URL is /dev instead of /exec.\nFirst 300 chars:\n' + raw.slice(0, 300) };
+            }
+            try {
+                return JSON.parse(raw);
+            } catch (parseErr) {
+                return { ok: false, error: 'Response was not valid JSON.\n' + raw.slice(0, 500) };
+            }
+        } catch (e) {
+            return { ok: false, error: 'Network error: ' + String(e) + '\n(Often: bad URL, offline, CORS blocked, or deployment access not set to "Anyone".)' };
+        }
+    }
+
+    async function pingSheet() {
+        if (!settings.url) return alert('Save the URL and token first.');
+        showSyncError('');
+        const result = await pushToSheet('ping', {});
+        if (result.ok) {
+            alert(`Ping OK — connected to sheet "${result.sheet}".`);
+        } else {
+            showSyncError('Ping failed:\n' + (result.error || 'unknown error'));
+        }
+    }
+
+    async function syncPending(verbose) {
+        if (!settings.url) {
+            if (verbose) alert('No Apps Script URL configured.');
+            updateGlobalSyncStatus();
+            return;
+        }
+        const pending = logs.filter(l => !l.synced);
+        if (pending.length === 0) {
+            if (verbose) alert('Nothing to sync — all entries are up to date.');
+            updateGlobalSyncStatus();
+            return;
+        }
+
+        let okCount = 0, failCount = 0, lastError = '';
+        for (const log of pending) {
+            let result;
+            if (log._pendingDelete) {
+                result = await pushToSheet('delete', { id: log.id });
+            } else {
+                const { _pendingDelete, ...entry } = log;
+                result = await pushToSheet('save', { entry });
+            }
+            if (result.ok) {
+                okCount++;
+                if (log._pendingDelete) {
+                    logs = logs.filter(l => l.id !== log.id);
+                } else {
+                    log.synced = true;
+                }
+            } else {
+                failCount++;
+                lastError = result.error || 'unknown error';
+                console.error('Sync failed for entry', log.id, result);
+            }
+        }
+        saveLogs();
+        loadLogs();
+        if (failCount > 0) showSyncError(`Sync failed (${failCount} of ${pending.length}):\n${lastError}`);
+        else showSyncError('');
+        if (verbose) alert(`Synced: ${okCount}. Failed: ${failCount}.${failCount ? '\n\nSee Settings panel for error details.' : ''}`);
+    }
+
+    function saveLogs() {
+        localStorage.setItem('cr_logs', JSON.stringify(logs));
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    function escapeAttr(s) {
+        return String(s).replace(/'/g, "\\'");
+    }
+</script>
+
+</body>
+</html>

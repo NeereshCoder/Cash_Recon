@@ -402,12 +402,29 @@
 </div>
 
 <script>
+    // ─── DEPLOYMENT CONFIG ────────────────────────────────────────────────────
+    // Fill in your Apps Script Web App URL and token here before uploading to
+    // Cloudflare. Users who open the shared link will connect automatically —
+    // no settings entry required.
+    const CONFIG = {
+        url:   'https://script.google.com/macros/s/AKfycbxl_348ZmyhJSYea5qNjO2XSW0BT-NO1JrM8YpxYDgKUVe3WzLZBWDOQlpHSHoqk-tGBQ/exec',   // e.g. https://script.google.com/macros/s/AKfy.../exec
+        token: 'nauwneroaXGEionw' // must match SHARED_SECRET in apps-script.gs
+    };
+    // ─────────────────────────────────────────────────────────────────────────
+
     const denominations = [2000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
     const LARGE_DIFF_THRESHOLD = 500;
 
     let users = JSON.parse(localStorage.getItem('cr_users')) || ['Ramesh', 'Suresh', 'Amit'];
     let logs = JSON.parse(localStorage.getItem('cr_logs')) || [];
-    let settings = JSON.parse(localStorage.getItem('cr_settings')) || { url: '', token: '' };
+
+    // Use saved settings if present; otherwise fall back to the baked-in CONFIG.
+    const _saved = JSON.parse(localStorage.getItem('cr_settings')) || {};
+    let settings = {
+        url:   _saved.url   || CONFIG.url   || '',
+        token: _saved.token || CONFIG.token || ''
+    };
+
     let editingId = null;
 
     logs = logs.map(l => ({
@@ -421,8 +438,8 @@
 
     window.onload = async function() {
         document.getElementById('filterDate').valueAsDate = new Date();
-        document.getElementById('appsScriptUrl').value = settings.url || '';
-        document.getElementById('appsScriptToken').value = settings.token || '';
+        document.getElementById('appsScriptUrl').value = settings.url || CONFIG.url || '';
+        document.getElementById('appsScriptToken').value = settings.token || CONFIG.token || '';
         renderUsers();
         buildDenominationForm();
         loadLogs();
@@ -437,9 +454,12 @@
     }
 
     function saveSettings() {
-        settings.url = document.getElementById('appsScriptUrl').value.trim();
-        settings.token = document.getElementById('appsScriptToken').value.trim();
-        localStorage.setItem('cr_settings', JSON.stringify(settings));
+        const inputUrl   = document.getElementById('appsScriptUrl').value.trim();
+        const inputToken = document.getElementById('appsScriptToken').value.trim();
+        // Only persist non-empty overrides; blank fields fall back to CONFIG on next load.
+        settings.url   = inputUrl   || CONFIG.url   || '';
+        settings.token = inputToken || CONFIG.token || '';
+        localStorage.setItem('cr_settings', JSON.stringify({ url: inputUrl, token: inputToken }));
         showSyncError('');
         updateGlobalSyncStatus();
         if (settings.url) {
